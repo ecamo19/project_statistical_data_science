@@ -1,6 +1,6 @@
 name: project_sds
 channels:
-  - r-base=4.0.3
+  - r
   - defaults
   	
     
