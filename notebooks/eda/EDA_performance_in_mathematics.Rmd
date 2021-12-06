@@ -15,7 +15,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,comment = "", fig.align = 'center',
-					  fig.width = 11, fig.height = 7)
+					  fig.width = 20, fig.height = 15)
 ```
 
 
@@ -36,8 +36,8 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       
                       # Path to where to store pdf single figures
                       fig.path       = paste0("../eda/eda_figures", "/"),
-                      fig.width      = 11,
-                      fig.height     = 7,
+                      fig.width      = 20,
+                      fig.height     = 15,
                       message        = FALSE,
                       warning        = FALSE)
 ```
@@ -62,11 +62,80 @@ library(tidyverse)
 library(janitor)
 library(GGally)
 library(tidyr)
-library(reshape2)
 library(Hmisc)
+library(cowplot)
+```
+
+```{r}
+# Load data
+raw_data  <- read.table("../../raw_data/student-mat.csv", sep= ";", header=TRUE) 
+```
+
+
+```{r}
 
 ```
 
-# 1. 
-# 2. 
-# 3. 
+
+
+```{r}
+summary(raw_data)
+```
+
+```{r}
+clean_data  <-  
+    raw_data  %>% 
+        clean_names() %>% 
+        # Transform chr type to factor
+         mutate(across(where(is.character), as.factor)) %>% 
+        # Remove G1 G2
+        select(-c(g1,g2))  
+
+head(clean_data,5)
+```
+
+
+```{r  fig.width = 15, fig.height = 13}
+str(clean_data)
+
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE, fig.width = 20, fig.height = 15}
+par(mfrow = c(5,6))
+histogram_plot <-  function(x) {
+     ggplot(clean_data, aes(x = .data[[x]])) +
+          geom_histogram(stat = "count", bins = 5)  +
+          theme_bw() +
+          theme(axis.text=element_text(size = 15),
+                axis.title=element_text(size = 17,face = "bold"),
+                axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+}
+
+plots <- map(predictors_names, ~ histogram_plot(.x) ) 
+
+cowplot::plot_grid(plotlist = plots, nrow = 6)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
