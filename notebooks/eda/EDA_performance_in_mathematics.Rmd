@@ -64,73 +64,137 @@ library(GGally)
 library(tidyr)
 library(Hmisc)
 library(cowplot)
+library(viridis)
 ```
 
 ```{r}
 # Load data
-raw_data  <- read.table("../../raw_data/student-mat.csv", sep= ";", header=TRUE) 
+raw_data  <- read.table("../../data/raw_student-mat.csv", sep= ";", header=TRUE) 
 ```
 
 
 ```{r}
-
+raw_data[is.na(raw_data)]
 ```
 
-
-
-```{r}
-summary(raw_data)
-```
-
+# Clean data set
 ```{r}
 clean_data  <-  
     raw_data  %>% 
         clean_names() %>% 
+        # Transform response to numeric
+        mutate(g3 = as.numeric(g3)) %>%
+  
         # Transform chr type to factor
-         mutate(across(where(is.character), as.factor)) %>% 
+        mutate(across(where(is.character), as.factor)) %>% 
+        
+        # Transform intergers to factor except absences and age  
+        mutate(across(where(is.integer), as.factor)) %>% 
+  
+        # Transform absences and age as numeric       
+        mutate(age = as.integer(age), 
+               absences = as.integer(absences)) %>% 
         # Remove G1 G2
         select(-c(g1,g2))  
+
+
 
 head(clean_data,5)
 ```
 
-
+# Summary of the data
 ```{r  fig.width = 15, fig.height = 13}
 str(clean_data)
-
 ```
 
 
+# Histograms
+
+```{r}
+# Set names
+predictors_names <- set_names(names(clean_data)[-ncol(clean_data)])
+```
 
 
+## For each predictor
 ```{r message=FALSE, warning=FALSE, fig.width = 20, fig.height = 15}
-par(mfrow = c(5,6))
+
 histogram_plot <-  function(x) {
      ggplot(clean_data, aes(x = .data[[x]])) +
           geom_histogram(stat = "count", bins = 5)  +
           theme_bw() +
-          theme(axis.text=element_text(size = 15),
-                axis.title=element_text(size = 17,face = "bold"),
-                axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+          theme(axis.text=element_text(size = 21),
+                axis.title=element_text(size = 21,face = "bold"),
+                axis.text.x = element_text(angle = 25, hjust = 1))
 }
 
-plots <- map(predictors_names, ~ histogram_plot(.x) ) 
+plots_predictors <- map(predictors_names, ~ histogram_plot(.x) ) 
 
-cowplot::plot_grid(plotlist = plots, nrow = 6)
+cowplot::plot_grid(plotlist = plots_predictors, nrow = 6)
+```
+
+## Each predictor combine with the response variable
+
+```{r width = 20, height = 25}
+
+g3_plot <-  function(x) {
+    ggplot(clean_data, aes(x = g3, fill = .data[[x]])) +
+     #geom_col(position = "fill") +
+    geom_bar(position = "fill") +
+    theme_bw() +
+    theme(axis.text=element_text(size = 15),
+          axis.title=element_text(size = 15,face = "bold"),
+          legend.position = "top",
+          legend.key.size = unit(0.5, 'cm'),
+          legend.title = element_text(size = 15)) +
+          #legend.text = element_text(size = 12)) +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_viridis(discrete = TRUE)
+     
+}
+
+
+plots_g3 <- map(predictors_names[-c(30,3)], ~ g3_plot(.x) ) 
+
+cowplot::plot_grid(plotlist = plots_g3, ncol = 4)
 ```
 
 
 
+```{r}
+clean_data$g3[clean_data$g3 == 4]
+clean_data$g3[clean_data$g3 == 20]
+```
+
+## Response Variable
+```{r out.width = "100%"}
+ggplot(clean_data, aes(x = g3)) +
+          geom_histogram(stat = "count")  +
+          theme_bw() +
+          theme(axis.text=element_text(size = 21),
+                axis.title = element_text(size = 21,face = "bold"))
+```
 
 
 
+```{r echo = FALSE}
+# Save clean dataset
+if(!"clean_data_student_math_performance.csv" %in% dir("../../data/")) {
+  
+  write.csv(clean_data, file = "../../data/clean_data_student_math_performance.csv")
+  print("Dataset saved")
+  
+  } else{
+
+  print("File already exist")
+  }
+```
 
 
+# Conclusions
++ The dataset has a total of 395 observation and 31 variables with no NA's
 
-
-
-
-
++ 
 
 
 
