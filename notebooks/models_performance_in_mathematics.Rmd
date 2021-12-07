@@ -1,0 +1,480 @@
+---
+title: 'Models for students performance in Mathematics'
+author: "Erick Calderon-Morales"
+date: ' Fall 2021'
+due_date: ""
+output:
+  prettydoc::html_pretty:
+    highlight: pygments
+    theme: cayman
+    toc: yes
+    number_sections: no
+    toc_depth: 1
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,comment = "", fig.align = 'center',
+					  fig.width = 20, fig.height = 15)
+```
+
+
+
+```{r knitr, include = FALSE}
+
+# Save figures in specific place
+
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.comments = TRUE,
+                      
+                      # Include code?
+                      echo           = TRUE,
+                      
+                      error          = FALSE,
+                      fig.align      = "center",
+                      
+                      # Path to where to store pdf single figures
+                      fig.path       = paste0("../eda/eda_figures", "/"),
+                      fig.width      = 20,
+                      fig.height     = 15,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+
+```{r cleanup-docs, cache = FALSE,echo = FALSE}
+
+# save a html copy file in a specific place
+#doc.files <- c(list.files(pattern = "pdf"),
+#               list.files(pattern = "html"),
+#               list.files(pattern = "docx"))
+
+#for (file in doc.files) {
+#  cambiar nombre
+#    file.rename(file, file.path("../../hw1/", file))
+#}
+```
+
+
+```{r libaries, message=FALSE, warning=FALSE, cache=FALSE}
+# Packages
+library(tidyverse)
+# For cleaning names
+library(janitor)
+# Best subset selection 
+library(leaps)
+# For tidy function
+library(broom)
+# For mse plot
+library(ggvis)
+# For UScrimes dataset
+library(MASS)
+# For correlations 
+library(GGally)
+# For joining plots
+library(cowplot)
+# For lasso and ridge regressions
+library(glmnet)
+# For pls and pcr regressions
+library(pls)
+# For tables
+library(gt)
+# For xyplot
+library(lattice)
+
+```
+
+```{r}
+# Load data
+dataset_math_performance  <- read.csv("../data/clean_data_student_math_performance.csv", 
+                                      header=TRUE) 
+```
+
+```{r}
+
+dataset_math_performance <- 
+  dataset_math_performance %>% 
+    dplyr::select(-g3_binary)
+```
+
+
+```{r}
+set.seed(666)
+
+# slip data into train and test 80/20 
+
+# Get index
+train_index <- sample(1:nrow(dataset_math_performance),(nrow(dataset_math_performance)*80)/100)
+
+# Test set
+dataset_train <- dataset_math_performance[train_index,]
+
+# Remove first column
+dataset_train <- dataset_train[,-1]
+nrow(dataset_train)
+
+# Train set
+dataset_test <-  dataset_math_performance[-train_index,]
+
+# Remove first column
+dataset_test <- dataset_test[,-1] 
+
+nrow(dataset_test)
+```
+
+```{r}
+model_matrix_train <- model.matrix(g3 ~ ., data = dataset_train)[,-1]
+model_matrix_test  <- model.matrix(g3 ~ ., data = dataset_test)[,-1]
+```
+
+# Trainning models 
+
+## Split data into training and testing
+```{r}
+
+set.seed(666)
+# slip data into train and test
+
+# Get index
+train_index <- sample(1:nrow(dataset_math_performance),
+                      (nrow(dataset_math_performance)*75)/100)
+
+# Train set
+math_performance_train <- dataset_math_performance[train_index,][,-1]
+(nrow(math_performance_train)*100)/nrow(dataset_math_performance)
+
+# This is done for fittin ridge and lasso
+x_vars_train <- model.matrix(g3 ~., data = math_performance_train)[,-1]
+y_var_train <- math_performance_train$g3 
+
+# Test set
+math_performance_test <-  dataset_math_performance[-train_index,][,-1]
+(nrow(math_performance_test)*100)/nrow(dataset_math_performance)
+y_var_test <- math_performance_test$g3 
+
+
+# This is done for fitting ridge and lasso
+x_vars_test <- model.matrix(g3 ~., data = math_performance_test)[,-1]
+
+```
+
+##  ## Best Subset Model Multiple linear regression
+
+__The best subset model is the one with 6 variables__
+
+```{r}
+mult_reg_train <- regsubsets(g3 ~., nvmax = 33, 
+                             nbest = 1,
+                             method="exhaustive", 
+                             data = math_performance_train)
+
+mult_reg_train_summary <- summary(mult_reg_train)
+```
+
+
+
+```{r}
+# Select best multiple regression model
+par(mfrow = c(1,2))
+plot(mult_reg_train_summary$cp , xlab =" Number of Variables ", ylab =" Cp",type="p")
+plot(mult_reg_train_summary$bic, xlab =" Number of Variables ", ylab =" BIC ",type="p")
+```
+
+```{r}
+coef(mult_reg_train, id = 8)
+```
+
+```{r}
+# Refit the best subset model
+best_mult_reg_train <- lm(log_y ~ m + so + ed + po1 + ineq + time,  
+                          data = uscrime_train)
+```
+
+-   Ridge regression
+
+__The best Ridge model is the one with 15 variables__
+
+```{r}
+ridge_uscrimes_train <- cv.glmnet(x_vars_train, y_var_train, alpha = 0)
+```
+
+
+```{r}
+plot(ridge_uscrimes_train)
+```
+
+-   Lasso regression
+
+__The best LASSO model is the one with 2 variables__
+
+
+```{r}
+lasso_uscrimes_train <- cv.glmnet(x_vars_train, y_var_train, alpha = 1)
+```
+
+
+```{r}
+plot(lasso_uscrimes_train)
+```
+
+-   Principal components regression (justify how many principal components should be used)
+
+__I chose 5 components for the principal component regression since the value of MSEP start to stabilize after 5 components__
+
+
+```{r}
+pcr_uscrimes_train <- pcr(log_y ~ ., data = uscrime_train, 
+                          scale = TRUE , 
+                          validation = "CV")
+```
+
+```{r}
+validationplot(pcr_uscrimes_train, val.type = "MSEP", type = "p")
+```
+
+-   Partial least squares (justify how many directions should be used)
+
+__I chose 3 components for the partial least squared regression since it has the lowest MSEP value.__
+
+```{r}
+pls_uscrimes_train <- plsr(log_y ~ ., data = uscrime_train, 
+                          scale = TRUE , 
+                          validation = "CV")
+```
+
+```{r}
+validationplot(pls_uscrimes_train, val.type = "MSEP", type = "p")
+```
+
+_(c) (5 pts) Compare the effectiveness of each model on training vs. testing data._
+
+-   Multiple linear regression MSE
+
+```{r}
+# Training error
+mult_mse_train <- summary(best_mult_reg_train)$sigma^2
+
+# Testing error
+mult_pred <- predict(best_mult_reg_train, newx = uscrime_test)
+
+mult_mse_test <- mean((mult_pred - y_var_test)^2)
+```
+
+-   Ridge regression MSE
+
+```{r}
+# MSE train
+ridge_pred_train <- predict(ridge_uscrimes_train, 
+                            s = ridge_uscrimes_train$lambda.1se,
+                            newx = x_vars_train)
+
+# Training error
+ridge_mse_train <- mean((ridge_pred_train - y_var_train)^2) 
+
+# MSE test
+ridge_pred_test <- predict(ridge_uscrimes_train, 
+                            s = ridge_uscrimes_train$lambda.1se,
+                            newx = x_vars_test)
+# Test error
+ridge_mse_test <- mean((ridge_pred_test - y_var_test)^2) 
+```
+
+-   Lasso regression MSE
+
+```{r}
+
+# MSE train
+lasso_pred_train <- predict(lasso_uscrimes_train, 
+                            s = lasso_uscrimes_train$lambda.1se,
+                            newx = x_vars_train)
+
+# Training error
+lasso_mse_train <- mean((lasso_pred_train - y_var_train)^2) 
+
+# MSE test
+lasso_pred_test <- predict(lasso_uscrimes_train, 
+                            s = lasso_uscrimes_train$lambda.1se,
+                            newx = x_vars_test)
+# Test error
+lasso_mse_test <- mean((lasso_pred_test - y_var_test)^2) 
+```
+
+-   PCR MSE
+
+```{r}
+# Train error
+pcr_pred_train <- predict(pcr_uscrimes_train, data = uscrime_train, ncomp = 5)
+pcr_mse_train <- mean((pcr_pred_train - y_var_train)^2)
+
+# Test error
+pcr_pred_test <- predict(pcr_uscrimes_train, uscrime_test, ncomp = 5)
+pcr_mse_test <- mean((pcr_pred_test - y_var_test)^2)
+```
+
+-   PLSR MSE
+
+```{r}
+# Train error
+pls_pred_train <- predict(pls_uscrimes_train, data = uscrime_train, ncomp = 3)
+pls_mse_train <- mean((pls_pred_train - y_var_train)^2)
+
+# Test error
+pls_pred_test <- predict(pls_uscrimes_train, uscrime_test, ncomp = 3)
+pls_mse_test <- mean((pls_pred_test - y_var_test)^2)
+```
+
+*Table 1: Models MSE*
+
+__Based on which model has the lowest mse test value and the lowest difference between mse test and mse train I decided to choose the Ridge model and the Principal component regression model with 5 components.__
+
+```{r}
+tribble(
+~model, ~mse_train, ~mse_test,~difference,
+"MLR",   mult_mse_train,  mult_mse_test,  abs(mult_mse_test  - mult_mse_train),
+"RIDGE", ridge_mse_train, ridge_mse_test, abs(ridge_mse_test - ridge_mse_train),
+"LASSO", lasso_mse_train, lasso_mse_test, abs(lasso_mse_test - lasso_mse_train),
+"PCR",   pcr_mse_train,   pcr_mse_test,   abs(pcr_mse_test   - pcr_mse_train),
+"PLS",   pls_mse_train,   pls_mse_test,   abs(pls_mse_test   - pls_mse_train)
+) %>% gt()
+```
+
+
+_(d) (8 pts) Select the best two models from above._
+
+-   Refit Ridge model to the entire data set
+
+```{r}
+x_variables_uscrime <- model.matrix(log_y ~., data = uscrime)[,-1]
+y_variable_uscrime <- uscrime$log_y
+
+ridge_uscrimes <- cv.glmnet(x_variables_uscrime, y_variable_uscrime, alpha = 0)
+```
+
+-   Refit PCR model to the entire data set
+
+```{r}
+pcr_uscrimes <- pcr(log_y ~ ., ncomp = 5,
+                          scale = TRUE ,
+                          data = uscrime, 
+                          validation = "CV")
+summary(pcr_uscrimes)
+pcr_uscrimes[["coefficients"]][,,1]
+```
+
+
+_(d.1) Interpret and compare their respective final fitted models_
+
++ PCR 
+
+__Overall, the 5 principal components explains 86% of the variability in the data and 60% of the variability in the y-variable. I do not observe any violation of the model's assumptions since I do not detect any pattern in the residuals vs predicted plot.__
+
+```{r}
+summary(pcr_uscrimes)
+```
+
+```{r}
+xyplot(resid(pcr_uscrimes) ~ predict(pcr_uscrimes), type = c("p", "g"),
+       xlab = "Predicted", ylab = "Residuals")
+```
+
+__The predicted vs observed shows a linear relation which I considered is not good enough so I question the actual predictive power of the model. Also, when the y-variable is plot against each principal component, it seems that there is not relationship between the rate of crimes and any principal component.__  
+
+```{r}
+predplot(pcr_uscrimes)
+```
+```{r}
+pc1 <- xyplot(y_variable_uscrime ~ pcr_uscrimes$projection[,1], type = c("p", "g"))
+```
+
+```{r}
+pc2 <- xyplot(y_variable_uscrime ~ pcr_uscrimes$projection[,2], type = c("p", "g"))
+```
+
+```{r}
+pc3 <-xyplot(y_variable_uscrime ~ pcr_uscrimes$projection[,3], type = c("p", "g"))
+```
+
+```{r}
+pc4 <-xyplot(y_variable_uscrime ~ pcr_uscrimes$projection[,4], type = c("p", "g"))
+```
+
+```{r}
+pc5 <- xyplot(y_variable_uscrime ~ pcr_uscrimes$projection[,5], type = c("p", "g"))
+```
+
+```{r}
+plot_grid(pc1,pc2,pc3,pc4,pc5)
+```
+
+__Given the social nature of the data set and the importance of drawing conclusions for understanding the effect of punishment regimes on crime rates in United States of America, I consider that the PCR model is inadequate for understanding this problem. The main drawbacks of this model reside in the difficulty for drawing any conclusions. As showed above, it seems that none of the principal components relate to the y-variable. Also I consider this model inadequate for this data since the number of predictors (15) is not larger than the number of observation(47).__
+
++ Ridge regression
+
+__Even though the PCR has a lower MSE error (0.065) I consider the Ridge regression a better solution to understanding the effect of punishment regimes on crime rates compared to PCR. This because in this data set is more important to infer which predictors are related with crime rates than predict future values.__
+
+```{r}
+ridge_pred_full <- predict(ridge_uscrimes, 
+                            s = ridge_uscrimes$lambda.1se,
+                            newx = x_variables_uscrime)
+
+pcr_pred_full <- predict(pcr_uscrimes, data = uscrime, ncomp = 5)
+
+
+# MSE 
+(pcr_mse_full <- mean((pcr_pred_full - y_variable_uscrime)^2))
+(ridge_mse_full <- mean((ridge_pred_full - y_variable_uscrime)^2))
+
+```
+
+__The main problem of this data set is that some predictors showed high correlation between each other. This problem is solved in the Ridge regression by adding a penalty term that shrinks towards zero some coefficients.__
+
+```{r fig.width = 7, fig.height = 5} 
+coefs_ridge <- as.data.frame(coef(ridge_uscrimes)[-1,])
+colnames(coefs_ridge) <- "coef_value"
+
+coefs_ridge %>% 
+  rownames_to_column(var = "coefficient") %>% 
+    ggplot(data = ., aes(x = factor(coefficient), y = coef_value)) +
+    geom_point(fill = "#ed3324", color = "white", size = 4, shape = 21) + 
+    geom_hline(aes(yintercept = 0),linetype = 6) +
+    theme_bw() +
+    coord_flip() +
+    ylab("Coefficient value") + xlab("Predictors")
+```
+
+
+__From all the variables in the model it seems that only the probability of imprisonment(prob) and indicator variable for a Southern state(so) are important to explain the crime rates.__
+
+__It seems that a lower probability of imprisonment leads to higher rates of crime. Specifically for each unit increase in the probability of imprisonment the crime rate decreases by 90%, while being or not in a Southern state increase by 7% the crime rates.__
+
+```{r}
+# Percent increase or decrease in the response for every one-unit increase in the independent variable.
+# For every one-unit increase in the independent variable
+(exp(-2.3772447459)-1)*100
+```
+
+```{r}
+# Percent increase or decrease in the response for every one-unit increase in the independent variable.
+# For every one-unit increase in the independent variable
+(exp(0.0765351706)-1)*100
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
