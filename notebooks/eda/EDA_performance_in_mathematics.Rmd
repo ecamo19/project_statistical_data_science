@@ -76,33 +76,40 @@ raw_data  <- read.table("../../data/raw_student-mat.csv", sep= ";", header=TRUE)
 ```{r}
 raw_data[is.na(raw_data)]
 ```
+# EDA goal
+
+The general goals of this EDA is to explore the distribution of each predictor and the response variable and clean the raw data for the models.
+
 
 # Clean data set
 ```{r}
 clean_data  <-  
     raw_data  %>% 
         clean_names() %>% 
-        # Transform response to numeric
-        mutate(g3 = as.numeric(g3)) %>%
   
+        # Transform variables to numeric
+        mutate(g3 = as.numeric(g3),
+               g2 = as.numeric(g2),
+               g1 = as.numeric(g1),
+               age = as.numeric(age),
+               absences = as.numeric(absences)) %>%
+        
         # Transform chr type to factor
         mutate(across(where(is.character), as.factor)) %>% 
         
         # Transform intergers to factor except absences and age  
-        mutate(across(where(is.integer), as.factor)) %>% 
+        mutate(across(where(is.integer), as.factor)) %>%
   
-        # Transform absences and age as numeric       
-        mutate(age = as.integer(age), 
-               absences = as.integer(absences)) %>% 
-        # Remove G1 G2
-        select(-c(g1,g2))  
-
-
-
-head(clean_data,5)
+        # Add g3 as binary for part A2 of the project         
+        mutate(g3_binary = factor(if_else(g3 >= 10,"pass","fail" )))   
+      
 ```
 
+
 # Summary of the data
+
++ The data set has a total of 395 observation and 31 predictors. Most of these I consider are better if are treated as factors. Only Age and Absences are treated as numeric.
+
 ```{r  fig.width = 15, fig.height = 13}
 str(clean_data)
 ```
@@ -111,68 +118,117 @@ str(clean_data)
 # Histograms
 
 ```{r}
-# Set names
-predictors_names <- set_names(names(clean_data)[-ncol(clean_data)])
+# Set names, exclude response variables
+predictors_names <- set_names(names(clean_data)[-c(33:34)])
 ```
 
 
 ## For each predictor
-```{r message=FALSE, warning=FALSE, fig.width = 20, fig.height = 15}
+
++ In general most of the students, come from the school called Gabriela Pereira, live in most the cases in Urban areas, travel approximately 1h to get to school, dedicated 2h to studying, failed almost no class, do not received extra class support from the school, the parents support them to stay in school, attended to nursery school, want to take higher education, have internet access, have no romantic relationships and have a low alcoholic consumption during the workday.  
+
+
++ In terms of family, most of the students have families with size greater than 3 with both parents living in the same house. In most cases, both parents have some degree of education and have good family relationships.
+
+
+```{r message=FALSE, warning=FALSE, fig.width = 20, fig.height = 25}
 
 histogram_plot <-  function(x) {
      ggplot(clean_data, aes(x = .data[[x]])) +
-          geom_histogram(stat = "count", bins = 5)  +
+          geom_histogram(stat = "count")  +
           theme_bw() +
           theme(axis.text=element_text(size = 21),
                 axis.title=element_text(size = 21,face = "bold"),
-                axis.text.x = element_text(angle = 25, hjust = 1))
+                axis.text.x = element_text(angle = 25, hjust = 1)) 
 }
 
 plots_predictors <- map(predictors_names, ~ histogram_plot(.x) ) 
 
-cowplot::plot_grid(plotlist = plots_predictors, nrow = 6)
+cowplot::plot_grid(plotlist = plots_predictors, ncol = 4)
 ```
 
-## Each predictor combine with the response variable
++ In terms of absences, there are 6 students with 30 absences or more.
 
-```{r width = 20, height = 25}
+```{r message=FALSE, warning=FALSE}
+ggplot(clean_data, aes(x = absences)) +
+          geom_histogram(stat = "count")  +
+          theme_bw() +
+          theme(axis.text=element_text(size = 21),
+                axis.title=element_text(size = 21,face = "bold"),
+                axis.text.x = element_text(angle = 25, hjust = 1)) 
+```
+
+
+## For each predictor combined with the response variable
+
++ Must of the students that got a score of 19 come from families that have no more that 3 individuals 
+
++ There is no single predictor that show any trend. This makes me think that the score obtained the mathematics test are better explained with multiple predictors.  
+
+```{r width = 10, height = 20}
 
 g3_plot <-  function(x) {
     ggplot(clean_data, aes(x = g3, fill = .data[[x]])) +
-     #geom_col(position = "fill") +
     geom_bar(position = "fill") +
     theme_bw() +
     theme(axis.text=element_text(size = 15),
           axis.title=element_text(size = 15,face = "bold"),
           legend.position = "top",
           legend.key.size = unit(0.5, 'cm'),
-          legend.title = element_text(size = 15)) +
-          #legend.text = element_text(size = 12)) +
+          legend.title = element_text(size = 15), 
+          legend.text = element_text(size = 12)) +
     scale_y_continuous(labels = scales::percent) +
     scale_fill_viridis(discrete = TRUE)
      
 }
 
-
-plots_g3 <- map(predictors_names[-c(30,3)], ~ g3_plot(.x) ) 
+# Exclude numeric variables
+plots_g3 <- map(predictors_names[-c(3,29,30,31,32)], ~ g3_plot(.x) ) 
 
 cowplot::plot_grid(plotlist = plots_g3, ncol = 4)
 ```
 
 
 
-```{r}
-clean_data$g3[clean_data$g3 == 4]
-clean_data$g3[clean_data$g3 == 20]
+
+
+```{r echo = FALSE}
+print(paste0("Number of individuals with a score equal to 4: ",length(clean_data$g3[clean_data$g3 == 4])))
+print(paste0("Number of individuals with a score equal to 20: ",length(clean_data$g3[clean_data$g3 == 20])))
 ```
 
-## Response Variable
-```{r out.width = "100%"}
+# Distribution of the Response Variable
+
++ There are 38 students that got a score equal to 0
+
+```{r message=FALSE, warning=FALSE}
 ggplot(clean_data, aes(x = g3)) +
           geom_histogram(stat = "count")  +
           theme_bw() +
           theme(axis.text=element_text(size = 21),
                 axis.title = element_text(size = 21,face = "bold"))
+```
+# Boxplots
+
+```{r width = 10, height = 20}
+g3_boxplot <-  function(x) {
+    ggplot(clean_data, aes(y = g3, x = .data[[x]])) +
+     #geom_col(position = "fill") +
+    geom_boxplot(outlier.shape = 14, outlier.size=2) +
+    theme_light() +
+    theme(axis.text=element_text(size = 15),
+          axis.title=element_text(size = 15,face = "bold"),
+          legend.position = "top",
+          legend.key.size = unit(0.5, 'cm'),
+          legend.title = element_text(size = 15)) 
+          #legend.text = element_text(size = 12)) 
+
+}
+
+
+boxplots_g3 <- map(predictors_names[-c(3,30,31,32)], ~ g3_boxplot(.x) ) 
+
+cowplot::plot_grid(plotlist = boxplots_g3 , ncol = 4)
 ```
 
 
@@ -182,19 +238,15 @@ ggplot(clean_data, aes(x = g3)) +
 if(!"clean_data_student_math_performance.csv" %in% dir("../../data/")) {
   
   write.csv(clean_data, file = "../../data/clean_data_student_math_performance.csv")
-  print("Dataset saved")
+  print("Clean dataset saved")
   
   } else{
 
-  print("File already exist")
+  print("Clean dataset saved")
   }
 ```
 
 
-# Conclusions
-+ The dataset has a total of 395 observation and 31 variables with no NA's
-
-+ 
 
 
 
