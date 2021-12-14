@@ -92,7 +92,7 @@ dataset_math_performance  <- read.csv("../data/clean_data_student_math_performan
 ```
 
 ```{r}
-
+# Remove response variable
 dataset_math_performance <- 
   dataset_math_performance %>% 
     dplyr::select(-g3_binary)
@@ -100,37 +100,11 @@ dataset_math_performance <-
 
 
 ```{r}
-set.seed(666)
-
-# slip data into train and test 80/20 
-
-# Get index
-train_index <- sample(1:nrow(dataset_math_performance),(nrow(dataset_math_performance)*80)/100)
-
-# Test set
-dataset_train <- dataset_math_performance[train_index,]
-
-# Remove first column
-dataset_train <- dataset_train[,-1]
-nrow(dataset_train)
-
-# Train set
-dataset_test <-  dataset_math_performance[-train_index,]
-
-# Remove first column
-dataset_test <- dataset_test[,-1] 
-
-nrow(dataset_test)
+str(dataset_math_performance)
 ```
 
-```{r}
-model_matrix_train <- model.matrix(g3 ~ ., data = dataset_train)[,-1]
-model_matrix_test  <- model.matrix(g3 ~ ., data = dataset_test)[,-1]
-```
 
-# Trainning models 
-
-## Split data into training and testing
+# Split data into training and testing
 ```{r}
 
 set.seed(666)
@@ -142,7 +116,7 @@ train_index <- sample(1:nrow(dataset_math_performance),
 
 # Train set
 math_performance_train <- dataset_math_performance[train_index,][,-1]
-(nrow(math_performance_train)*100)/nrow(dataset_math_performance)
+
 
 # This is done for fittin ridge and lasso
 x_vars_train <- model.matrix(g3 ~., data = math_performance_train)[,-1]
@@ -150,18 +124,31 @@ y_var_train <- math_performance_train$g3
 
 # Test set
 math_performance_test <-  dataset_math_performance[-train_index,][,-1]
-(nrow(math_performance_test)*100)/nrow(dataset_math_performance)
 y_var_test <- math_performance_test$g3 
+
 
 
 # This is done for fitting ridge and lasso
 x_vars_test <- model.matrix(g3 ~., data = math_performance_test)[,-1]
-
 ```
 
-##  ## Best Subset Model Multiple linear regression
+```{r echo = FALSE}
+print(paste0("Size of training dataset: ",
+             nrow(math_performance_train)*100/nrow(dataset_math_performance), " %"))
 
-__The best subset model is the one with 6 variables__
+print(paste0("Size of testing dataset: ",
+             nrow(math_performance_test)*100/nrow(dataset_math_performance), " %"))
+```
+
+
+```{r}
+model_matrix_train <- model.matrix(g3 ~ ., data = dataset_train)[,-1]
+model_matrix_test  <- model.matrix(g3 ~ ., data = dataset_test)[,-1]
+```
+
+# Trainning models 
+
+## Best Subset Model Multiple linear regression
 
 ```{r}
 mult_reg_train <- regsubsets(g3 ~., nvmax = 33, 
@@ -182,7 +169,12 @@ plot(mult_reg_train_summary$bic, xlab =" Number of Variables ", ylab =" BIC ",ty
 ```
 
 ```{r}
+# Model from Cp 
 coef(mult_reg_train, id = 8)
+```
+```{r}
+# Model from BIC
+coef(mult_reg_train, id = 1)
 ```
 
 ```{r}

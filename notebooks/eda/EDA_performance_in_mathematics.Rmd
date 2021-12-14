@@ -106,7 +106,7 @@ eda_data  <-
 ```
 
 
-# Histograms and barplots
+# Barplots
 
 ```{r}
 # Set names, exclude response variables (g3 and g3_binary)
@@ -127,14 +127,18 @@ predictors_names <- set_names(names(eda_data)[-c(33:34)])
 
 histogram_plot <-  function(x) {
      ggplot(eda_data, aes(x = .data[[x]])) +
-          geom_histogram(stat = "count")  +
+          geom_bar()  +
+          geom_text(aes(label = scales::percent(..prop..), group = 1), 
+                    stat= "count", position = position_dodge(width = 0.9), 
+                    size = 7) +
           theme_bw() +
+          #scale_y_continuous(labels = scales::percent) +
           theme(axis.text=element_text(size = 21),
                 axis.title=element_text(size = 21,face = "bold"),
                 axis.text.x = element_text(angle = 25, hjust = 1)) 
 }
 
-plots_predictors <- map(predictors_names, ~ histogram_plot(.x) ) 
+plots_predictors <- map(predictors_names[-30], ~ histogram_plot(.x) ) 
 
 cowplot::plot_grid(plotlist = plots_predictors, ncol = 4)
 ```
