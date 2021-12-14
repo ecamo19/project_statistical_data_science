@@ -65,6 +65,7 @@ library(tidyr)
 library(Hmisc)
 library(cowplot)
 library(viridis)
+library(DT)
 ```
 
 ```{r}
@@ -232,6 +233,30 @@ cowplot::plot_grid(plotlist = boxplots_g3 , ncol = 4)
 ```
 
 
+# Removing predictors
+
+__The following criteria where used to remove predictors:__
+
++ The fraction of unique values over the sample size is low (say 10 %).
+
++ The ratio of the frequency of the most prevalent value to the frequency of
+the second most prevalent value is large (say around 20).
+
+
+```{r}
+eda_data %>%
+  dplyr::select(is.factor) %>%
+  gather(variable,level)   %>%   
+  group_by(variable,level) %>%
+  count() %>% 
+  DT::datatable()
+```
+
+
+Based on these criteria I decided to remove:
+
++ school, pstatus, failures, schoolsup, higher
+
 # Save clean dataset
 
 ```{r}
@@ -245,6 +270,9 @@ clean_data  <-
                g1 = as.numeric(g1),
                age = as.numeric(age),
                absences = as.numeric(absences)) %>%
+        
+        # remove varaibles
+        dplyr::select(-c(school, pstatus, failures, schoolsup, higher)) %>% 
         
         # Transform chr type to factor
         mutate(across(where(is.character), as.factor)) %>%
