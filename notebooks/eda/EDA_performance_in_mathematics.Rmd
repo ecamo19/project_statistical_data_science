@@ -66,6 +66,7 @@ library(Hmisc)
 library(cowplot)
 library(viridis)
 library(DT)
+library(GGally)
 ```
 
 ```{r}
@@ -156,6 +157,13 @@ ggplot(eda_data, aes(x = absences)) +
 ```
 
 
+## Correlations between predictors
+```{r message=FALSE, warning=FALSE}
+ggcorr(eda_data)
+```
+
+ 
+
 ## For each predictor combined with the response variable 
 
 
@@ -242,6 +250,11 @@ __The following criteria where used to remove predictors:__
 + The ratio of the frequency of the most prevalent value to the frequency of
 the second most prevalent value is large (say around 20).
 
++ The predictors have a high correlation
+
+```{r}
+cor(eda_data$g1, eda_data$g2)
+```
 
 ```{r}
 eda_data %>%
@@ -255,7 +268,8 @@ eda_data %>%
 
 Based on these criteria I decided to remove:
 
-+ school, pstatus, failures, schoolsup, higher
++ school, pstatus, failures, schoolsup and higher.
+
 
 # Save clean dataset
 
@@ -283,7 +297,7 @@ clean_data  <-
 
 # Summary of the data
 
-+ The data set has a total of 395 observation and 31 variables. 18 of these I consider are better if are treated as factors. G1, G2, G3, Age and Absences are treated as numeric and med, fedu, famrel free_time, go out, walc, dalc, health, travel time and study time are treated as integers.  
++ The data set has a total of 395 observation and 31 variables. 18 of these I consider are better if are treated as factors. G1 , G3, Age and Absences are treated as numeric and med, fedu, famrel free_time, go out, walc, dalc, health, travel time and study time are treated as integers.  
 
 ```{r  fig.width = 15, fig.height = 13}
 str(clean_data)

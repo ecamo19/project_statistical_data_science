@@ -1,0 +1,435 @@
+---
+title: 'Models for students performance in Mathematics'
+author: "Erick Calderon-Morales"
+date: ' Fall 2021'
+due_date: ""
+output:
+  prettydoc::html_pretty:
+    highlight: pygments
+    theme: cayman
+    toc: yes
+    number_sections: no
+    toc_depth: 1
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,comment = "", fig.align = 'center',
+					  fig.width = 20, fig.height = 15)
+```
+
+
+
+```{r knitr, include = FALSE}
+
+# Save figures in specific place
+
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.comments = TRUE,
+                      
+                      # Include code?
+                      echo           = TRUE,
+                      
+                      error          = FALSE,
+                      fig.align      = "center",
+                      
+                      # Path to where to store pdf single figures
+                      fig.path       = paste0("../notebooks/eda_figures", "/"),
+                      fig.width      = 20,
+                      fig.height     = 15,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+
+```{r cleanup-docs, cache = FALSE,echo = FALSE}
+
+# save a html copy file in a specific place
+#doc.files <- c(list.files(pattern = "pdf"),
+#               list.files(pattern = "html"),
+#               list.files(pattern = "docx"))
+
+#for (file in doc.files) {
+#  cambiar nombre
+#    file.rename(file, file.path("../../hw1/", file))
+#}
+```
+
+
+```{r libaries, message=FALSE, warning=FALSE, cache=FALSE}
+# Packages
+library(tidyverse)
+# For cleaning names
+library(janitor)
+# Best subset selection 
+library(leaps)
+# For tidy function
+library(broom)
+# For mse plot
+library(ggvis)
+# For UScrimes dataset
+library(MASS)
+# For correlations 
+library(GGally)
+# For joining plots
+library(cowplot)
+# For lasso and ridge regressions
+library(glmnet)
+# For pls and pcr regressions
+library(pls)
+# For tables
+library(gt)
+# For xyplot
+library(lattice)
+
+```
+
+```{r}
+# Load data
+dataset_math_performance  <- read.csv("../../../data/clean_data_student_math_performance.csv", 
+                                      header=TRUE) 
+```
+
+```{r}
+# Remove response variable
+dataset_math_performance <- 
+  dataset_math_performance %>% 
+    dplyr::select(-c(g3_binary, X)) %>% 
+        
+        # Transform variables to numeric
+        mutate(g3 = as.numeric(g3),
+               g2 = as.numeric(g2),
+               g1 = as.numeric(g1),
+               absences = as.numeric(absences)) %>%
+        # Transform chr type to factor
+        mutate(across(where(is.character), as.factor))
+    
+```
+
+
+```{r}
+str(dataset_math_performance)
+```
+
+
+# Split data into training and testing
+```{r}
+
+set.seed(666)
+# slip data into train and test
+
+# Get index
+train_index <- sample(1:nrow(dataset_math_performance),
+                      (nrow(dataset_math_performance)*75)/100)
+
+# Train set
+math_performance_train <- dataset_math_performance[train_index,][,-1]
+
+
+# This is done for fittin ridge and lasso
+
+# Full dataset
+x_vars_math <- model.matrix(g3 ~., data = dataset_math_performance)[,-1]
+y_var_math  <- dataset_math_performance$g3 
+
+# Training dataset
+x_vars_train <- model.matrix(g3 ~., data = math_performance_train)[,-1]
+y_var_train <- math_performance_train$g3 
+
+# Test set
+math_performance_test <-  dataset_math_performance[-train_index,][,-1]
+y_var_test <- math_performance_test$g3 
+
+
+
+# This is done for fitting ridge and lasso
+x_vars_test <- model.matrix(g3 ~., data = math_performance_test)[,-1]
+```
+
+```{r echo = FALSE}
+print(paste0("Size of training dataset: ",
+             nrow(math_performance_train)*100/nrow(dataset_math_performance), " %"))
+
+print(paste0("Size of testing dataset: ",
+             nrow(math_performance_test)*100/nrow(dataset_math_performance), " %"))
+```
+
+
+# Trainning models 
+
+## Best Subset Model Multiple linear regression
+
+```{r}
+mult_reg_train <- regsubsets(g3 ~., nvmax = 26, 
+                             nbest = 1,
+                             method="exhaustive", 
+                             data = math_performance_train)
+
+mult_reg_train_summary <- summary(mult_reg_train)
+```
+
+
+
+```{r}
+# Select best multiple regression model
+plot(mult_reg_train_summary$cp , xlab =" Number of Variables ", ylab =" Cp",type="p")
+```
+
+
+
+```{r}
+# Model from Cp 
+coef(mult_reg_train, id = 8)
+```
+```{r}
+# Refit the best subset model
+best_mult_reg_train <- lm(g3 ~ age + fjob + romantic + famrel + walc  + absences + g1 +g2 ,  
+                           data = math_performance_train)
+```
+
+
+
+##   Ridge regression
+
+```{r}
+ridge_math_train <- cv.glmnet(x_vars_train, y_var_train, alpha = 0)
+```
+
+
+```{r}
+plot(ridge_math_train)
+```
+
+## Lasso regression
+
+
+```{r}
+lasso_math_train <- cv.glmnet(x_vars_train, y_var_train, alpha = 1)
+```
+
+
+```{r}
+plot(lasso_math_train)
+```
+
+## Principal components regression
+
+```{r}
+pcr_math_train <- pcr(g3 ~ ., data = math_performance_train, 
+                          scale = TRUE , 
+                          validation = "CV")
+```
+
+```{r}
+validationplot(pcr_math_train, val.type = "MSEP", type = "p")
+```
+
+## Partial least squares 
+
+```{r}
+pls_math_train <- plsr(g3 ~ ., data = math_performance_train, 
+                          scale = TRUE , 
+                          validation = "CV")
+```
+
+```{r}
+validationplot(pls_math_train, val.type = "MSEP", type = "p")
+```
+
+# Estimate training and testing error
+ 
+## Multiple linear regression MSE
+
+```{r}
+# Training error
+# best_mult_reg_train
+mult_mse_train <- summary(best_mult_reg_train)$sigma^2
+
+
+# Testing error
+mult_pred <- predict(best_mult_reg_train, newx = math_performance_test)
+mult_mse_test <- mean((mult_pred - math_performance_test$g3)^2)
+
+```
+
+## Ridge regression MSE
+
+```{r}
+# MSE train
+ridge_pred_train <- predict(ridge_math_train, 
+                            s = ridge_math_train$lambda.1se,
+                            newx = x_vars_train)
+
+# Training error
+ridge_mse_train <- mean((ridge_pred_train - y_var_train)^2) 
+
+# MSE test
+ridge_pred_test <- predict(ridge_math_train, 
+                            s = ridge_math_train$lambda.1se,
+                            newx = x_vars_test)
+# Test error
+ridge_mse_test <- mean((ridge_pred_test - y_var_test)^2) 
+```
+
+## Lasso regression MSE
+
+```{r}
+
+# MSE train
+lasso_pred_train <- predict(lasso_math_train, 
+                            s = lasso_math_train$lambda.1se,
+                            newx = x_vars_train)
+
+# Training error
+lasso_mse_train <- mean((lasso_pred_train - y_var_train)^2) 
+
+# MSE test
+lasso_pred_test <- predict(lasso_math_train, 
+                            s = lasso_math_train$lambda.1se,
+                            newx = x_vars_test)
+# Test error
+lasso_mse_test <- mean((lasso_pred_test - y_var_test)^2) 
+```
+
+## PCR MSE
+
+```{r}
+# Train error
+pcr_pred_train <- predict(pcr_math_train, data = math_performance_train , ncomp = 5 )
+pcr_mse_train <- mean((pcr_pred_train - math_performance_train$g3)^2)
+
+# Test error
+pcr_pred_test <- predict(pcr_math_train, math_performance_test, ncomp = 5 )
+pcr_mse_test <- mean((pcr_pred_test - math_performance_test$g3)^2)
+```
+
+## PLSR MSE
+
+```{r}
+# Train error
+pls_pred_train <- predict(pls_math_train, data = math_performance_train, ncomp = 2)
+pls_mse_train <- mean((pls_pred_train - math_performance_train$g3)^2)
+
+# Test error
+pls_pred_test <- predict(pls_math_train, math_performance_test, ncomp = 2)
+pls_mse_test <- mean((pls_pred_test - math_performance_test$g3)^2)
+```
+
+# Compare the effectiveness of each model on training vs. testing data.
+__Table 1: Models MSE__
+
+
+
+```{r echo = FALSE}
+tribble(
+~model, ~mse_train, ~mse_test,~difference,
+"MLR", mult_mse_train,  mult_mse_test,  abs(mult_mse_test  - mult_mse_train),
+"PCR",   pcr_mse_train,   pcr_mse_test,   abs(pcr_mse_test   - pcr_mse_train),
+"PLS",   pls_mse_train,   pls_mse_test,   abs(pls_mse_test   - pls_mse_train),
+"RIDGE", ridge_mse_train, ridge_mse_test, abs(ridge_mse_test - ridge_mse_train),
+"LASSO", lasso_mse_train, lasso_mse_test, abs(lasso_mse_test - lasso_mse_train)) %>% 
+  gt()
+```
+
+# Select the best models from Table 1 and refit models to the entire data 
+
+## PLS fitted to the full dataset
+
+```{r}
+pls_math_performance <- plsr(g3 ~ ., ncomp = 2,
+                          scale = TRUE ,
+                          data = dataset_math_performance, 
+                          validation = "CV")
+
+summary(pls_math_performance)
+
+```
+```{r}
+xyplot(dataset_math_performance$g3 ~ pls_math_performance$loadings[,1], type = c("p", "g"))
+```
+
+
+
+### Check model assumptions
+```{r}
+xyplot(resid(pls_math_performance) ~ predict(pls_math_performance), 
+       type = c("p", "g"),xlab = "Predicted", ylab = "Residuals")
+```
+
+```{r}
+predplot(pls_math_performance)
+```
+
+
+
+## LASSO fitted to the full dataset
+
+```{r}
+lasso_math_performace <- cv.glmnet(x_vars_math, y_var_math, alpha = 1)
+```
+
+
+```{r}
+coefs_lasso <- as.data.frame(coef(lasso_math_performace)[-1,])
+
+coefs_lasso <- 
+  coefs_lasso %>%   
+    rownames_to_column(var = "coefficient")  %>% 
+    mutate(coefficient = factor(coefficient)) %>% 
+    rename(value = "coef(lasso_math_performace)[-1, ]") 
+
+
+
+ggplot(data = coefs_lasso, aes(x = reorder(coefficient,value), y = value)) +
+    geom_point(fill = "#ed3324", color = "white", size = 4, shape = 21) + 
+    geom_hline(aes(yintercept = 0),linetype = 6) +
+    theme_bw() +
+    coord_flip() +
+    ylab("Coefficient value") + xlab("Predictors")
+```
+
+### Check model assumptions
+
+## Ridge fitted to the full dataset
+```{r}
+ridge_math_performance <- cv.glmnet(x_vars_math, y_var_math, alpha = 0)
+```
+
+```{r}
+coefs_ridge <- as.data.frame(coef(ridge_math_performance)[-1,])
+colnames(coefs_ridge) <- "value"
+
+coefs_ridge %>% 
+  rownames_to_column(var = "coefficient") %>% 
+    mutate(coefficient = factor(coefficient)) %>% 
+    ggplot(data = ., aes(x = reorder(coefficient, value), y = value)) +
+    geom_point(fill = "#ed3324", color = "white", size = 4, shape = 21) + 
+    geom_hline(aes(yintercept = 0),linetype = 6) +
+    theme_bw() +
+    coord_flip() +
+    ylab("Coefficient value") + xlab("Predictors")
+```
+
+
+
+
+
+```{r}
+#xyplot(mt ~ pcr_uscrimes$projection[,1], type = c("p", "g"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
