@@ -35,7 +35,7 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       fig.align      = "center",
                       
                       # Path to where to store pdf single figures
-                      fig.path       = paste0("../eda/eda_figures", "/"),
+                      fig.path       = paste0("../eda/eda_figures/", "/"),
                       fig.width      = 20,
                       fig.height     = 15,
                       message        = FALSE,

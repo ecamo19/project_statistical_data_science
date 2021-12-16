@@ -1,0 +1,503 @@
+---
+title: 'Classification Models for students performance in Mathematics'
+author: "Erick Calderon-Morales"
+date: ' Fall 2021'
+due_date: ""
+output:
+  prettydoc::html_pretty:
+    highlight: pygments
+    theme: cayman
+    toc: yes
+    number_sections: no
+    toc_depth: 1
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,comment = "", fig.align = 'center',
+					  fig.width = 20, fig.height = 15)
+```
+
+
+
+```{r knitr, include = FALSE}
+
+# Save figures in specific place
+
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.comments = TRUE,
+                      
+                      # Include code?
+                      echo           = TRUE,
+                      
+                      error          = FALSE,
+                      fig.align      = "center",
+                      
+                      # Path to where to store pdf single figures
+                      fig.path       = paste0("../a2_classification_models/figures_classification_models", "/"),
+                      fig.width      = 20,
+                      fig.height     = 15,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+
+```{r cleanup-docs, cache = FALSE,echo = FALSE}
+
+# save a html copy file in a specific place
+#doc.files <- c(list.files(pattern = "pdf"),
+#               list.files(pattern = "html"),
+#               list.files(pattern = "docx"))
+
+#for (file in doc.files) {
+#  cambiar nombre
+#    file.rename(file, file.path("../../hw1/", file))
+#}
+```
+
+
+```{r libaries, message=FALSE, warning=FALSE, cache=FALSE}
+# Packages
+library(caret)
+library(class)
+library(tidyverse)
+# For cleaning names
+library(janitor)
+# Best subset selection 
+library(yardstick)
+library(kknn)
+# For decision tree
+library(rpart)
+library(partykit)
+library(randomForest)
+#for dummy coding
+library(psych)
+library(pROC) 
+
+
+```
+
+```{r}
+# Load data
+dataset_math_perform  <- read.csv("../../../data/clean_data_student_math_performance.csv", 
+                                      header=TRUE) 
+```
+
+```{r}
+
+math_performance  <- 
+  dataset_math_perform %>% 
+    dplyr::select(-c(g3,X)) %>% 
+        
+        # Transform variables to numeric
+        mutate(g3_binary = factor(g3_binary),
+               g2 = as.integer(g2),
+               g1 = as.integer(g1),
+               absences = as.integer(absences)) %>%
+        # Transform chr type to factor
+        mutate(across(where(is.character), as.factor))
+    
+```
+
+
+```{r}
+str(math_performance)
+```
+
+# Split data into training and testing
+```{r}
+set.seed(999)
+# slip data into train and test
+
+# Get index
+train_index <- sample(1:nrow(math_performance ),
+                      (nrow(math_performance )*75)/100)
+
+# Train set
+math_performance_train <- math_performance[train_index,]
+
+# Test set
+math_performance_test <- math_performance[-train_index,]
+```
+
+```{r echo = FALSE}
+print(paste0("Size of training dataset: ",
+             nrow(math_performance_train)*100/nrow(math_performance), " %"))
+
+print(paste0("Size of testing dataset: ",
+             nrow(math_performance_test)*100/nrow(math_performance), " %"))
+```
+```{r}
+# Setting up the k-fold cross validation k = 10 cross-validation folds.
+# First, we set up the cross validation control
+
+#Setting the random seed for replication
+set.seed(999)
+
+#setting up cross-validation
+cvcontrol <- trainControl(method = "repeatedcv", 
+                          number = 10,
+                          allowParallel = TRUE)
+```
+
+
+
+# Trainning models 
+ref 1: https://quantdev.ssri.psu.edu/sites/qdev/files/kNN_tutorial.html
+ref 2: https://quantdev.ssri.psu.edu/sites/qdev/files/09_EnsembleMethods_2017_1127.html
+ref 3: https://quantdev.ssri.psu.edu/sites/qdev/files/07_Trees_2017_1125.html
+ref: https://remiller1450.github.io/s230f19/caret2.html
+
+# Logistic regression
+```{r}
+fit <- train(Status ~ Age + Sex, 
+             data = donner, 
+             method = "glm", 
+             family = "binomial", 
+             trControl = fit.control)
+
+```
+
+
+# Model 0: A Single Classification Tree
+https://topepo.github.io/caret/pre-processing.html
+
+
+
+```{r}
+train_tree <- train(g3_binary ~ ., 
+                   data = dummie_vars,
+                   method = "ctree",
+                   trControl = cvcontrol,
+                   tuneLength = 10)
+train_tree
+```
+```{r}
+plot(train_tree$finalModel,
+    main = "Regression Tree")
+```
+
+```{r}
+#obtaining class predictions
+tree_class_train <-  predict(train_tree,type="raw")
+confusionMatrix(math_performance[train_index,]$g3_binary,tree_class_train,
+                positive = "pass")
+```
+```{r}
+# obtaining class predictions
+tree_class_test <-  predict(train_tree,
+                            newdata = math_performance[-train_index,], 
+                            type = "raw")
+
+confusionMatrix(math_performance[-train_index,]$g3_binary,tree_class_test,
+                positive = "pass" )
+```
+
+```{r}
+#Obtaining predicted probabilites for Test data
+tree_probs = predict(train_tree,
+                 newdata = math_performance[-train_index,],
+                 type="prob")
+
+```
+
+```{r}
+#Calculate ROC curve
+#roc_curve_tree <- roc(math_performance[-train_index,]$g3_binary,tree_probs[,"Yes"])
+#plot the ROC curve
+#plot(roc_curve_tree, col=c(4))
+```
+# Bagging of ctrees
+
+```{r}
+#Using treebag 
+train_bagg <- train(g3_binary  ~ ., 
+                   data = math_performance[train_index,],
+                   method = "treebag",
+                   trControl = cvcontrol,
+                   importance=TRUE)
+
+train_bagg
+
+
+```
+
+```{r}
+plot(varImp(train_bagg))
+```
+
+```{r}
+#obtaining class predictions
+bagg_class_train <-  predict(train_bagg, 
+                          type="raw")
+
+confusionMatrix(math_performance[train_index,]$g3_binary,bagg_class_train,
+                positive = "pass")
+```
+```{r}
+bagg_class_test <- predict(train_bagg, 
+                          newdata = math_performance[-train_index,],
+                          type="raw")
+
+confusionMatrix(math_performance[-train_index,]$g3_binary, bagg_class_test)
+```
+
+# Random Forest for classification trees
+```{r}
+#Using treebag 
+train_random_forest <- train(g3_binary  ~ ., 
+                             data = math_performance[train_index,],
+                             method = "rf",
+                             trControl = cvcontrol,
+                             importance=TRUE)
+
+train_random_forest
+
+```
+
+```{r}
+rf_class_train <-  predict(train_random_forest, 
+                            type="raw")
+#computing confusion matrix
+confusionMatrix(math_performance[train_index,]$g3_binary,rf_class_train, 
+                positive = "pass")
+```
+```{r}
+#obtaining class predictions
+rf_class_test <- predict(train_random_forest, 
+                         newdata = math_performance[-train_index,],
+                          type="raw")
+confusionMatrix(math_performance[-train_index,]$g3_binary,rf_class_test)
+```
+
+# Random Forest with Gradient Boosting
+
+# kNN
+```{r}
+knn_pred_caret <- train(math_performance_train, 
+                         y_train, 
+                         method = "knn",
+                         preProcess = c("center","scale"))
+knn_pred_caret 
+```
+
+```{r}
+knn_predict <- predict(knn_pred_caret, newdata = math_performance_test[,-24]) 
+
+confusionMatrix(knn_predict, y_test, positive = "pass")
+```
+
+
+# For model comparision
+https://machinelearningmastery.com/machine-learning-ensembles-with-r/
+
+
+
+## Logistic Regression
+
+```{r}
+# Fit model
+mod_logistic <- 
+  logistic_reg(mode = "classification") %>%
+  set_engine("glm") %>%
+  fit( ~ .,
+      data = class_math_performance_train)
+
+# Get training predictions
+pred_train <- 
+  class_math_performance_train %>%
+  bind_cols(predict(mod_logistic, new_data = class_math_performance_train,  
+                  type = "class")) %>% 
+
+  # Create column with predictions
+  rename(math_exam_train = .pred_class)
+```
+
+
+```{r}
+# Confusion matrix
+pred_train %>%
+  conf_mat(truth = g3_binary, estimate = math_exam_train)
+
+accuracy(pred_train, g3_binary,math_exam_train)
+```
+
+
+```{r}
+# Test accuracy
+mods <- tibble(
+  type = c("Logistic model"),
+  mod = list(mod_logistic)
+)
+
+# Get tests and trining errors
+mods <- 
+  mods %>%
+  
+  mutate(y_train = list(pull(class_math_performance_train, g3_binary)),
+         y_test = list(pull(class_math_performance_test, g3_binary)),
+    
+    # predictitions y train 
+    y_hat_train = map(mod, ~pull(predict(.x, new_data = class_math_performance_train, 
+                                    type = "class"), .pred_class)),
+    
+    # predictitions y test
+    y_hat_test = map(mod,  ~pull(predict(.x, new_data = class_math_performance_test, 
+                                       type = "class"), .pred_class))
+  )
+```
+
+
+```{r}
+# Get sensibility and specificity
+
+mods <- mods %>%
+  
+  mutate(accuracy_train = map2_dbl(y_train, y_hat_train, accuracy_vec),
+         accuracy_test = map2_dbl(y_test, y_hat_test, accuracy_vec),
+    
+    # A single string. Either "first" or "second" to specify which level of truth to consider as the "event"
+    # Just change the order of sens and spec values
+        sensibility_test = map2_dbl(y_test, y_hat_test, sens_vec, event_level = "second"),
+        specificity_test = map2_dbl(y_test, y_hat_test, spec_vec, event_level = "second")
+    )
+
+```
+
+
+```{r}
+# Get data for roc
+mods <-
+  mods %>%
+  #.prod level of response variable
+    mutate(y_hat_prob_test = map(mod,~pull(predict(.x, new_data = class_math_performance_test, 
+                                                   type = "prob"),`.pred_pass`)),
+           type = fct_reorder(type, sensibility_test, .desc = TRUE)
+  )
+```
+
+
+```{r}
+mods %>%
+  dplyr::select(type, y_test, y_hat_prob_test) %>%
+  unnest(cols = c(y_test, y_hat_prob_test)) %>%
+  group_by(type) %>%
+  roc_curve(truth = y_test, y_hat_prob_test, event_level = "second") %>%
+  autoplot() + 
+  geom_point(data = mods,aes(x = 1 - specificity_test, y = sensibility_test, 
+                             color = type),size = 3) + 
+  scale_color_brewer("Model", palette = "Set2")
+```
+
+
+# Model Comparison
+```{r eval=FALSE}
+# Optional #########################################################################################
+# Model comparison
+mod_null <- logistic_reg(mode = "classification") %>%
+  set_engine("glm") %>%
+  fit(income ~ 1, data = train)
+
+mod_log_all <- logistic_reg(mode = "classification") %>%
+  set_engine("glm") %>%
+  fit(form, data = train)
+
+mods <- tibble(
+  type = c(
+    "null", "log_all", "tree", "forest", 
+    "knn", "neural_net", "naive_bayes"
+  ),
+  mod = list(
+    mod_null, mod_log_all, mod_tree, mod_forest, 
+    mod_knn, mod_nn, mod_nb
+  )
+)
+
+mods <- mods %>%
+  mutate(
+    y_train = list(pull(train, income)),
+    y_test = list(pull(test, income)),
+    y_hat_train = map(
+      mod, 
+      ~pull(predict(.x, new_data = train, type = "class"), .pred_class)
+    ),
+    y_hat_test = map(
+      mod, 
+      ~pull(predict(.x, new_data = test, type = "class"), .pred_class)
+    )
+  )
+mods
+
+predict_ensemble <- function(x) {
+  majority <- ceiling(length(x) / 2)
+  x %>%
+    data.frame() %>%
+    rowwise() %>%
+    mutate(
+      rich_votes = sum(c_across() == ">50K"),
+      .pred_class = factor(ifelse(rich_votes >= majority , ">50K", "<=50K"))
+    ) %>%
+    pull(.pred_class) %>%
+    fct_relevel("<=50K")
+}
+
+ensemble <- tibble(
+  type = "ensemble",
+  mod = NA,
+  y_train = list(predict_ensemble(pull(mods, y_train))),
+  y_test = list(predict_ensemble(pull(mods, y_test))),
+  y_hat_train = list(predict_ensemble(pull(mods, y_hat_train))),
+  y_hat_test = list(predict_ensemble(pull(mods, y_hat_test)))
+)
+
+mods <- mods %>%
+  bind_rows(ensemble)
+
+mods <- mods %>%
+  mutate(
+    accuracy_train = map2_dbl(y_train, y_hat_train, accuracy_vec),
+    accuracy_test = map2_dbl(y_test, y_hat_test, accuracy_vec),
+    sens_test = map2_dbl(
+      y_test,
+      y_hat_test,
+      sens_vec,
+      event_level = "second"
+    ),
+    spec_test = map2_dbl(y_test,
+                         y_hat_test,
+                         spec_vec,
+                         event_level = "second"
+    )
+  )
+mods %>%
+  dplyr::select(-mod, -matches("^y")) %>%
+  arrange(desc(accuracy_test))
+
+mods <- mods %>%
+  filter(type != "ensemble") %>%
+  mutate(
+    y_hat_prob_test = map(
+      mod, 
+      ~pull(predict(.x, new_data = test, type = "prob"), `.pred_>50K`)
+    ),
+    type = fct_reorder(type, sens_test, .desc = TRUE)
+  )
+
+mods %>%
+  dplyr::select(type, y_test, y_hat_prob_test) %>%
+  unnest(cols = c(y_test, y_hat_prob_test)) %>%
+  group_by(type) %>%
+  roc_curve(truth = y_test, y_hat_prob_test, event_level = "second") %>%
+  autoplot() + 
+  geom_point(
+    data = mods, 
+    aes(x = 1 - spec_test, y = sens_test, color = type), 
+    size = 3
+  )
+
+```
+
+
+
+

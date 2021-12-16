@@ -30,12 +30,12 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       
                       # Include code?
                       echo           = TRUE,
-                      
+                       
                       error          = FALSE,
                       fig.align      = "center",
                       
                       # Path to where to store pdf single figures
-                      fig.path       = paste0("../notebooks/eda_figures", "/"),
+                      fig.path       = paste0("../a1_regression_models/regression_models_figures/", "/"),
                       fig.width      = 20,
                       fig.height     = 15,
                       message        = FALSE,
@@ -115,36 +115,36 @@ str(dataset_math_performance)
 
 # Split data into training and testing
 ```{r}
-
-set.seed(666)
-# slip data into train and test
-
-# Get index
-train_index <- sample(1:nrow(dataset_math_performance),
-                      (nrow(dataset_math_performance)*75)/100)
-
-# Train set
-math_performance_train <- dataset_math_performance[train_index,][,-1]
-
-
-# This is done for fittin ridge and lasso
-
-# Full dataset
-x_vars_math <- model.matrix(g3 ~., data = dataset_math_performance)[,-1]
-y_var_math  <- dataset_math_performance$g3 
-
-# Training dataset
-x_vars_train <- model.matrix(g3 ~., data = math_performance_train)[,-1]
-y_var_train <- math_performance_train$g3 
-
-# Test set
-math_performance_test <-  dataset_math_performance[-train_index,][,-1]
-y_var_test <- math_performance_test$g3 
-
-
-
-# This is done for fitting ridge and lasso
-x_vars_test <- model.matrix(g3 ~., data = math_performance_test)[,-1]
+# 
+# set.seed(666)
+# # slip data into train and test
+# 
+# # Get index
+# train_index <- sample(1:nrow(dataset_math_performance),
+#                       (nrow(dataset_math_performance)*75)/100)
+# 
+# # Train set
+# math_performance_train <- dataset_math_performance[train_index,][,-1]
+# 
+# 
+# # This is done for fittin ridge and lasso
+# 
+# # Full dataset
+# x_var_math_full <- model.matrix(g3 ~., data = dataset_math_performance)[,-1]
+# y_var_math_full  <- dataset_math_performance$g3 
+# 
+# # Training dataset
+# x_var_train <- model.matrix(g3 ~., data = math_performance_train)[,-1]
+# y_var_train <- math_performance_train$g3 
+# 
+# # Test set
+# x_var_test <-  dataset_math_performance[-train_index,][,-1]
+# y_var_test <- math_performance_test$g3 
+# 
+# 
+# 
+# # This is done for fitting ridge and lasso
+# x_vars_test <- model.matrix(g3 ~., data = math_performance_test)[,-1]
 ```
 
 ```{r echo = FALSE}
@@ -167,6 +167,9 @@ mult_reg_train <- regsubsets(g3 ~., nvmax = 26,
                              data = math_performance_train)
 
 mult_reg_train_summary <- summary(mult_reg_train)
+which.max(summary.out$adjr2)
+#https://rstudio-pubs-static.s3.amazonaws.com/2897_9220b21cfc0c43a396ff9abf122bb351.html
+
 ```
 
 
