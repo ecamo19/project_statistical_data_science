@@ -370,6 +370,10 @@ predplot(pls_math_performance)
 
 ```{r}
 lasso_math_performace <- cv.glmnet(x_vars_math, y_var_math, alpha = 1)
+
+# Value from training model
+# http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
+lambda = cv.lasso$lambda.min
 ```
 
 

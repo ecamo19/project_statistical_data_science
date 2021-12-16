@@ -67,6 +67,7 @@ library(cowplot)
 library(viridis)
 library(DT)
 library(GGally)
+library(flextable)
 ```
 
 ```{r}
@@ -75,9 +76,6 @@ raw_data  <- read.table("../../data/raw_student-mat.csv", sep= ";", header=TRUE)
 ```
 
 
-```{r}
-raw_data[is.na(raw_data)]
-```
 # EDA goal
 
 The general goals of this EDA is to explore the distribution of each predictor and the response variable and clean the raw data for the models.
@@ -92,21 +90,72 @@ eda_data  <-
         # Transform variables to numeric
         mutate(g3 = as.numeric(g3),
                g2 = as.numeric(g2),
-               g1 = as.numeric(g1),
-               age = as.numeric(age),
-               absences = as.numeric(absences)) %>%
+               g1 = as.numeric(g1)) %>%
         
         # Transform chr type to factor
         mutate(across(where(is.character), as.factor)) %>% 
         
         # Transform intergers to factor except absences and age  
-         mutate(across(where(is.integer), as.factor)) %>%
+        mutate(across(where(is.integer), as.factor)) %>%
   
         # Add g3 as binary for part A2 of the project         
         mutate(g3_binary = factor(if_else(g3 >= 10,"pass","fail" )))   
       
 ```
 
+
+
+# Correpondace analysis for factor variables
+
+```{r}
+str(eda_data)
+```
+```{r}
+library(dlookr)
+```
+
+```{r}
+diagnose(eda_data) %>% 
+  flextable()
+```
+
+```{r}
+eda_data %>% 
+  select(-g3) %>% 
+  diagnose_category() %>% 
+ flextable()
+```
+```{r}
+eda_data %>% 
+  select( g1, g2, g3) %>% 
+  diagnose_numeric() %>% 
+ flextable()
+```
+```{r}
+eda_data %>%  
+  select(g1, g2, g3) %>%
+  diagnose_outlier() %>% 
+  flextable()
+```
+```{r}
+eda_data %>% 
+  select(-g3_binary) %>% 
+  select(age, absences, g1, g2, g3) %>%
+  plot_outlier() 
+```
+```{r}
+eda_data %>% 
+  select(g1, g2, g3) %>% 
+  describe() %>%
+  flextable()
+```
+
+# Variable preprocessing
+
+```{r}
+https://topepo.github.io/caret/pre-processing.html
+raw_data[is.na(raw_data)]
+```
 
 # Barplots
 
