@@ -68,6 +68,7 @@ library(viridis)
 library(DT)
 library(GGally)
 library(flextable)
+library(dlookr)
 ```
 
 ```{r}
@@ -103,15 +104,13 @@ eda_data  <-
       
 ```
 
-
-
 # Correpondace analysis for factor variables
 
 ```{r}
 str(eda_data)
 ```
 ```{r}
-library(dlookr)
+
 ```
 
 ```{r}
@@ -131,23 +130,34 @@ eda_data %>%
   diagnose_numeric() %>% 
  flextable()
 ```
+
+
 ```{r}
 eda_data %>%  
-  select(g1, g2, g3) %>%
+  select(g1, g2, g3, absences, age) %>%
+  mutate(age = as.integer(age),  
+         absences = as.integer(absences)) %>% 
   diagnose_outlier() %>% 
   flextable()
 ```
 ```{r}
-eda_data %>% 
-  select(-g3_binary) %>% 
-  select(age, absences, g1, g2, g3) %>%
+eda_data %>%  
+  #select(g1, g2, g3, absences, age) %>%
+  mutate(age = as.integer(age),
+         absences = log(as.integer(absences))) %>% 
   plot_outlier() 
+
+
+eda_data %>% 
+  filter(g2 < 5)
 ```
 ```{r}
 eda_data %>% 
   select(g1, g2, g3) %>% 
   describe() %>%
   flextable()
+
+log(eda_data$g2)
 ```
 
 # Variable preprocessing
