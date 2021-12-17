@@ -60,15 +60,13 @@ knitr::opts_chunk$set(autodep        = TRUE,
 ```{r libaries, message=FALSE, warning=FALSE, cache=FALSE}
 library(tidyverse)
 library(janitor)
-library(GGally)
 library(tidyr)
-library(Hmisc)
 library(cowplot)
-library(viridis)
 library(DT)
-library(GGally)
+library(webshot)
 library(flextable)
 library(dlookr)
+library(caret)
 ```
 
 ```{r}
@@ -104,86 +102,19 @@ eda_data  <-
       
 ```
 
-# Correpondace analysis for factor variables
 
 ```{r}
 str(eda_data)
-```
-```{r}
-
+dim(eda_data)
 ```
 
-```{r}
-diagnose(eda_data) %>% 
-  flextable()
-```
-
-```{r}
-eda_data %>% 
-  select(-g3) %>% 
-  diagnose_category() %>% 
- flextable()
-```
-```{r}
-eda_data %>% 
-  select( g1, g2, g3) %>% 
-  diagnose_numeric() %>% 
- flextable()
-```
-
-
-```{r}
-eda_data %>%  
-  select(g1, g2, g3, absences, age) %>%
-  mutate(age = as.integer(age),  
-         absences = as.integer(absences)) %>% 
-  diagnose_outlier() %>% 
-  flextable()
-```
-```{r}
-eda_data %>%  
-  #select(g1, g2, g3, absences, age) %>%
-  mutate(age = as.integer(age),
-         absences = log(as.integer(absences))) %>% 
-  plot_outlier() 
-
-
-eda_data %>% 
-  filter(g2 < 5)
-```
-```{r}
-eda_data %>% 
-  select(g1, g2, g3) %>% 
-  describe() %>%
-  flextable()
-
-log(eda_data$g2)
-```
-
-# Variable preprocessing
-
-```{r}
-https://topepo.github.io/caret/pre-processing.html
-raw_data[is.na(raw_data)]
-```
-
-# Barplots
 
 ```{r}
 # Set names, exclude response variables (g3 and g3_binary)
 predictors_names <- set_names(names(eda_data)[-c(33:34)])
 ```
 
-
-## For each predictor
-
-+ In general most of the students, come from the school called Gabriela Pereira, live in most the cases in Urban areas, travel approximately 1h to get to school, dedicated 2h to studying, failed almost no class, do not received extra class support from the school, the parents support them to stay in school, attended to nursery school, want to take higher education, have internet access, have no romantic relationships and have a low alcoholic consumption during the workday.  
-
-
-+ In terms of family, most of the students have families with size greater than 3 with both parents living in the same house. In most cases, both parents have some degree of education and have good family relationships.
-
-
-
+# Figure 1
 ```{r message=FALSE, warning=FALSE, fig.width = 20, fig.height = 25}
 
 histogram_plot <-  function(x) {
@@ -199,84 +130,84 @@ histogram_plot <-  function(x) {
                 axis.text.x = element_text(angle = 25, hjust = 1)) 
 }
 
-plots_predictors <- map(predictors_names[-30], ~ histogram_plot(.x) ) 
+plots_predictors <- map(predictors_names[-c(30,31,32)], ~ histogram_plot(.x) ) 
 
 cowplot::plot_grid(plotlist = plots_predictors, ncol = 4)
 ```
 
-+ Also in terms of absences, there are 6 students with 30 absences or more.
 
-```{r message=FALSE, warning=FALSE}
-ggplot(eda_data, aes(x = absences)) +
-          geom_histogram(stat = "count")  +
-          theme_bw() +
-          theme(axis.text=element_text(size = 21),
-                axis.title=element_text(size = 21,face = "bold"),
-                axis.text.x = element_text(angle = 25, hjust = 1)) 
+
+
+
+```{r}
+# ft <- flextable( head( mtcars ) )
+# ft <- autofit(ft)
+# tf <- tempfile(fileext = ".png")
+# if (FALSE) {
+# if( require("webshot") ){
+#   save_as_image(x = ft, path = "myimage.png")
+# }
+# }
 ```
 
 
-## Correlations between predictors
-```{r message=FALSE, warning=FALSE}
-ggcorr(eda_data)
+
+
+
+# Table 1
+
+
+```{r}
+(table_1 <-   
+  eda_data %>% 
+    select(g1, g2, g3) %>% 
+    describe() %>%
+    flextable())
+
+table_1 <- autofit(table_1)
+#tf <- tempfile(fileext = ".png")
+save_as_image(x = table_1, path = "../eda/eda_figures/table_1.png")
 ```
+# Table 2
+```{r}
+(table_2 <- 
+    eda_data %>% 
+      select(g3,g2,g1) %>% 
+      cor() %>%
+      as.data.frame() %>% 
+      flextable())
 
- 
-
-## For each predictor combined with the response variable 
-
-
-The main goal of the plots below is to explore if any of predictors show any pattern within each of the values of the response variable. For example, in the top left corner is displays the how much the percentage of each score varies by school.     
-
-+ Must of the  students that got a score of 19 come from families that have no more that 3 individuals 
-+ Must of the  Students that got an score of 0 
-
-+ There is no single predictor that show any trend. This makes me think that the score obtained the mathematics test are better explained with multiple predictors.  
-
-```{r width = 10, height = 20}
-
-g3_plot <-  function(x) {
-    ggplot(eda_data, aes(x = g3, fill = .data[[x]])) +
-    geom_bar(position = "fill") +
-    theme_bw() +
-    theme(axis.text=element_text(size = 15),
-          axis.title=element_text(size = 15,face = "bold"),
-          legend.position = "top",
-          legend.key.size = unit(0.5, 'cm'),
-          legend.title = element_text(size = 15), 
-          legend.text = element_text(size = 12)) +
-    scale_y_continuous(labels = scales::percent) +
-    scale_fill_viridis(discrete = TRUE)
-     
-}
-
-# Exclude numeric variables
-#
-
-plots_g3 <- map(predictors_names[-c(3,30,31,32)], ~ g3_plot(.x)) 
-
-cowplot::plot_grid(plotlist = plots_g3, ncol = 4)
+table_2 <- autofit(table_2)
+#tf <- tempfile(fileext = ".png")
+save_as_image(x = table_2, path = "../eda/eda_figures/table_2.png")
 ```
 
 
-```{r echo = FALSE}
-print(paste0("Number of individuals with a score equal to 4: ",length(eda_data$g3[eda_data$g3 == 4])))
-print(paste0("Number of individuals with a score equal to 20: ",length(eda_data$g3[eda_data$g3 == 20])))
+# Figure 2
+
+```{r fig.height = 12, fig.width = 8}
+
+g1_plot_outliers <- 
+eda_data %>%  
+  plot_outlier(g1) 
+
+g2_plot_outliers <- 
+eda_data %>%  
+  plot_outlier(g2) 
+
+g3_plot_outliers <- 
+eda_data %>%  
+  plot_outlier(g3) 
+
+
+
+plot_grid(plotlist = c(g1_plot_outliers,
+                       g2_plot_outliers,
+                       g3_plot_outliers), ncol = 1)
 ```
 
-# Distribution of the Response Variable
 
-+ There are 38 students that got a score equal to 0
-
-```{r message=FALSE, warning=FALSE}
-ggplot(eda_data, aes(x = g3)) +
-          geom_histogram(stat = "count")  +
-          theme_bw() +
-          theme(axis.text=element_text(size = 21),
-                axis.title = element_text(size = 21,face = "bold"))
-```
-
-# Boxplots
+# Figure 3
 
 ```{r width = 10, height = 20}
 g3_boxplot <-  function(x) {
@@ -300,34 +231,23 @@ cowplot::plot_grid(plotlist = boxplots_g3 , ncol = 4)
 ```
 
 
-# Removing predictors
+
+
+#  Table 3
+Variable prepossessing. Removing predictors
+
+
+```{r}
+eda_data %>% 
+  select(-c(g1,g2,g3,g3_binary)) %>% 
+  nearZeroVar(., saveMetrics= TRUE) %>% 
+  flextable()
+```
+
 
 __The following criteria where used to remove predictors:__
 
-+ The fraction of unique values over the sample size is low (say 10 %).
 
-+ The ratio of the frequency of the most prevalent value to the frequency of
-the second most prevalent value is large (say around 20).
-
-+ The predictors have a high correlation
-
-```{r}
-cor(eda_data$g1, eda_data$g2)
-```
-
-```{r}
-eda_data %>%
-  dplyr::select(is.factor) %>%
-  gather(variable,level)   %>%   
-  group_by(variable,level) %>%
-  count() %>% 
-  DT::datatable()
-```
-
-
-Based on these criteria I decided to remove:
-
-+ school, pstatus, failures, schoolsup and higher.
 
 
 # Save clean dataset
@@ -341,11 +261,8 @@ clean_data  <-
         mutate(g3 = as.numeric(g3),
                g2 = as.numeric(g2),
                g1 = as.numeric(g1),
-               age = as.numeric(age),
-               absences = as.numeric(absences)) %>%
-        
-        # remove varaibles
-        dplyr::select(-c(school, pstatus, failures, schoolsup, higher)) %>% 
+               age = as.integer(age),
+               absences = as.integer(absences)) %>%
         
         # Transform chr type to factor
         mutate(across(where(is.character), as.factor)) %>%
@@ -354,9 +271,7 @@ clean_data  <-
         mutate(g3_binary = factor(if_else(g3 >= 10,"pass","fail" )))   
 ```
 
-# Summary of the data
 
-+ The data set has a total of 395 observation and 31 variables. 18 of these I consider are better if are treated as factors. G1 , G3, Age and Absences are treated as numeric and med, fedu, famrel free_time, go out, walc, dalc, health, travel time and study time are treated as integers.  
 
 ```{r  fig.width = 15, fig.height = 13}
 str(clean_data)
