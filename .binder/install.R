@@ -14,6 +14,5 @@ install.packages("randomForest")
 install.packages("partykit")
 install.packages("psych")
 install.packages("gbm")
-
-#install.packages("")
+install.packages("pls")
 #install.packages("")
