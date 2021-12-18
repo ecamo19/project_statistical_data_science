@@ -35,7 +35,7 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       fig.align      = "center",
                       
                       # Path to where to store pdf single figures
-                      fig.path       = paste0("../eda/eda_figures/", "/"),
+                      fig.path       = paste0("../1_eda/eda_figures_tables/", "/"),
                       fig.width      = 20,
                       fig.height     = 15,
                       message        = FALSE,
@@ -73,11 +73,6 @@ library(caret)
 # Load data
 raw_data  <- read.table("../../data/raw_student-mat.csv", sep= ";", header=TRUE) 
 ```
-
-
-# EDA goal
-
-The general goals of this EDA is to explore the distribution of each predictor and the response variable and clean the raw data for the models.
 
 
 # Data set for eda
@@ -166,7 +161,7 @@ cowplot::plot_grid(plotlist = plots_predictors, ncol = 4)
 
 table_1 <- autofit(table_1)
 #tf <- tempfile(fileext = ".png")
-save_as_image(x = table_1, path = "../eda/eda_figures/table_1.png")
+save_as_image(x = table_1, path = "../1_eda/eda_figures_tables/table_1.png")
 ```
 # Table 2
 ```{r}
@@ -179,7 +174,7 @@ save_as_image(x = table_1, path = "../eda/eda_figures/table_1.png")
 
 table_2 <- autofit(table_2)
 #tf <- tempfile(fileext = ".png")
-save_as_image(x = table_2, path = "../eda/eda_figures/table_2.png")
+save_as_image(x = table_2, path = "../1_eda/eda_figures_tables/table_2.png")
 ```
 
 
@@ -234,18 +229,21 @@ cowplot::plot_grid(plotlist = boxplots_g3 , ncol = 4)
 
 
 #  Table 3
-Variable prepossessing. Removing predictors
-
 
 ```{r}
-eda_data %>% 
+(table_3 <- 
+  eda_data %>% 
   select(-c(g1,g2,g3,g3_binary)) %>% 
   nearZeroVar(., saveMetrics= TRUE) %>% 
-  flextable()
+  flextable())
+
+table_3 <- autofit(table_3)
+#tf <- tempfile(fileext = ".png")
+save_as_image(x = table_3, path = "../1_eda/eda_figures_tables/table_3.png")
 ```
 
 
-__The following criteria where used to remove predictors:__
+
 
 
 
@@ -272,10 +270,6 @@ clean_data  <-
 ```
 
 
-
-```{r  fig.width = 15, fig.height = 13}
-str(clean_data)
-```
 
 ```{r echo = FALSE}
 if(!"clean_data_student_math_performance.csv" %in% dir("../../data/")) {

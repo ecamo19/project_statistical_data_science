@@ -75,6 +75,9 @@ library(randomForest)
 library(psych)
 library(pROC) 
 library(tidyr)
+library(randomForest)
+library(gbm)
+library(flextable)
 ```
 
 ```{r}
@@ -142,15 +145,6 @@ cvcontrol <- trainControl(method = "repeatedcv",
 
 
 
-
-# Trainning models 
-ref 1: https://quantdev.ssri.psu.edu/sites/qdev/files/kNN_tutorial.html
-ref 2: https://quantdev.ssri.psu.edu/sites/qdev/files/09_EnsembleMethods_2017_1127.html
-ref 3: https://quantdev.ssri.psu.edu/sites/qdev/files/07_Trees_2017_1125.html
-ref: https://remiller1450.github.io/s230f19/caret2.html
-
-
-
 # Classification Tree
 
 
@@ -160,10 +154,6 @@ train_tree <- train(g3_binary ~ .,
                    method = "ctree",
                    trControl = cvcontrol,
                    tuneLength = 5)
-```
-```{r}
-plot(train_tree$finalModel,
-    main = "Regression Tree")
 ```
 
 ```{r}
@@ -206,9 +196,6 @@ train_bagg <- train(g3_binary  ~ .,
 
 ```
 
-```{r}
-plot(varImp(train_bagg))
-```
 
 ```{r}
 bagg_class_test <- predict(train_bagg, 
@@ -276,6 +263,7 @@ rf_table <-
 train_gbm <- train(g3_binary ~ ., 
                    data = math_performance_train,
                    method="gbm",
+                   
                    verbose = F,
                    trControl=cvcontrol)
 
@@ -286,7 +274,8 @@ train_gbm <- train(g3_binary ~ .,
 #obtaining class predictions
 gbm_class_test <-  predict(train_gbm,
                            newdata = math_performance_test,
-                           type="raw")
+                           type = "raw",
+                           importance = T)
 ```
 
 
@@ -296,7 +285,7 @@ random_rorest_gradient_boosting_stats <- confusionMatrix(math_performance_test$g
                                                    gbm_class_test,
                                                    positive = "pass" )
 
-rf_gradient_boosting <- 
+rf_gradient_boosting_table <- 
           rbind(as.data.frame(random_rorest_gradient_boosting_stats[3]) %>% 
                   rownames_to_column("var") %>% 
                   rename(value = "overall") %>% 
@@ -342,13 +331,25 @@ knn_table <-
 ```
 
 
-# For model comparision
-https://machinelearningmastery.com/machine-learning-ensembles-with-r/
-
-```{r eval=FALSE}
-#Calculate ROC curve
-roc_curve_tree <- roc(math_performance_test$g3_binary,tree_probs[,"pass"])
-#plot the ROC curve
-plot(roc_curve_tree, col=c(4))
+# Figure 5
+```{r fig.width = 7, fig.height=7}
+plot(varImp(train_gbm))
 ```
+
+
+# Table 5
+
+```{r}
+(table_5 <- rbind(decision_table, bagging_table, rf_table,
+            rf_gradient_boosting_table, knn_table) %>% 
+    pivot_wider(names_from = var, values_from = value) %>% 
+  flextable())
+  
+
+table_5 <- autofit(table_5)
+
+save_as_image(x = table_5, path = "../a2_classification_models/figures_classification_models/table_5.png")
+
+```
+
 

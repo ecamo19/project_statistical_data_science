@@ -1,5 +1,5 @@
 ---
-title: 'Models for students performance in Mathematics'
+title: 'Regression models for students performance in Mathematics (A1)'
 author: "Erick Calderon-Morales"
 date: ' Fall 2021'
 due_date: ""
@@ -204,7 +204,11 @@ best_mult_reg_train <- lm(g3 ~ sex + age + fjob + guardian +  + romantic +
 ##   Ridge regression
 
 ```{r}
+
 ridge_math_train <- cv.glmnet(x_var_train, y_var_train, alpha = 0)
+
+best_lambda_ridge_train <- ridge_math_train$lambda.1se
+
 ```
 
 
@@ -217,6 +221,7 @@ plot(ridge_math_train)
 
 ```{r}
 lasso_math_train <- cv.glmnet(x_var_train, y_var_train, alpha = 1)
+best_lambda_lasso_train <- lasso_math_train$lambda.1se
 ```
 
 
@@ -270,7 +275,7 @@ mult_mse_test <- mean((mult_pred - math_performance_test$g3)^2)
 # MSE train
 ridge_pred_train <- predict(ridge_math_train, 
                             s = ridge_math_train$lambda.1se,
-                            newx = x_vars_train)
+                            newx = x_var_train)
 
 # Training error
 ridge_mse_train <- mean((ridge_pred_train - y_var_train)^2) 
@@ -278,7 +283,7 @@ ridge_mse_train <- mean((ridge_pred_train - y_var_train)^2)
 # MSE test
 ridge_pred_test <- predict(ridge_math_train, 
                             s = ridge_math_train$lambda.1se,
-                            newx = x_vars_test)
+                            newx = x_var_test)
 # Test error
 ridge_mse_test <- mean((ridge_pred_test - y_var_test)^2) 
 ```
@@ -290,7 +295,7 @@ ridge_mse_test <- mean((ridge_pred_test - y_var_test)^2)
 # MSE train
 lasso_pred_train <- predict(lasso_math_train, 
                             s = lasso_math_train$lambda.1se,
-                            newx = x_vars_train)
+                            newx = x_var_train)
 
 # Training error
 lasso_mse_train <- mean((lasso_pred_train - y_var_train)^2) 
@@ -298,7 +303,7 @@ lasso_mse_train <- mean((lasso_pred_train - y_var_train)^2)
 # MSE test
 lasso_pred_test <- predict(lasso_math_train, 
                             s = lasso_math_train$lambda.1se,
-                            newx = x_vars_test)
+                            newx = x_var_test)
 # Test error
 lasso_mse_test <- mean((lasso_pred_test - y_var_test)^2) 
 ```
@@ -327,93 +332,47 @@ pls_pred_test <- predict(pls_math_train, math_performance_test, ncomp = 2)
 pls_mse_test <- mean((pls_pred_test - math_performance_test$g3)^2)
 ```
 
-# Compare the effectiveness of each model on training vs. testing data.
-__Table 1: Models MSE__
+# Table 1
 
 ```{r echo = FALSE}
-tribble(
+(table_4 <- tribble(
 ~model, ~mse_train, ~mse_test,~difference,
 "MLR", mult_mse_train,  mult_mse_test,  abs(mult_mse_test  - mult_mse_train),
 "PCR",   pcr_mse_train,   pcr_mse_test,   abs(pcr_mse_test   - pcr_mse_train),
 "PLS",   pls_mse_train,   pls_mse_test,   abs(pls_mse_test   - pls_mse_train),
 "RIDGE", ridge_mse_train, ridge_mse_test, abs(ridge_mse_test - ridge_mse_train),
 "LASSO", lasso_mse_train, lasso_mse_test, abs(lasso_mse_test - lasso_mse_train)) %>% 
-  gt()
+  flextable())
+
+
+
+table_4 <- autofit(table_4)
+
+save_as_image(x = table_4, path = "../a1_regression_models/regression_models_figures/table_4.png")
 ```
+
+
+
 
 # Select the best models from Table 1 and refit models to the entire data 
 
-## PLS fitted to the full dataset
-
-```{r}
-pls_math_performance <- plsr(g3 ~ ., ncomp = 2,
-                          scale = TRUE ,
-                          data = dataset_math_performance, 
-                          validation = "CV")
-
-summary(pls_math_performance)
-
-```
-```{r}
-xyplot(dataset_math_performance$g3 ~ pls_math_performance$loadings[,1], type = c("p", "g"))
-```
-
-
-
-### Check model assumptions
-```{r}
-xyplot(resid(pls_math_performance) ~ predict(pls_math_performance), 
-       type = c("p", "g"),xlab = "Predicted", ylab = "Residuals")
-```
-
-```{r}
-predplot(pls_math_performance)
-```
-
-
-
-## LASSO fitted to the full dataset
-
-```{r}
-lasso_math_performace <- cv.glmnet(x_vars_math, y_var_math, alpha = 1)
-
-# Value from training model
-# http://www.sthda.com/english/articles/36-classification-methods-essentials/149-penalized-logistic-regression-essentials-in-r-ridge-lasso-and-elastic-net/
-lambda = cv.lasso$lambda.min
-```
-
-
-```{r}
-coefs_lasso <- as.data.frame(coef(lasso_math_performace)[-1,])
-
-coefs_lasso <- 
-  coefs_lasso %>%   
-    rownames_to_column(var = "coefficient")  %>% 
-    mutate(coefficient = factor(coefficient)) %>% 
-    rename(value = "coef(lasso_math_performace)[-1, ]") 
-
-
-
-ggplot(data = coefs_lasso, aes(x = reorder(coefficient,value), y = value)) +
-    geom_point(fill = "#ed3324", color = "white", size = 4, shape = 21) + 
-    geom_hline(aes(yintercept = 0),linetype = 6) +
-    theme_bw() +
-    coord_flip() +
-    ylab("Coefficient value") + xlab("Predictors")
-```
-
-### Check model assumptions
-
 ## Ridge fitted to the full dataset
 ```{r}
-ridge_math_performance <- cv.glmnet(x_vars_math, y_var_math, alpha = 0)
+ridge_math_performance <- cv.glmnet(x_var_math_full, y_var_math_full, alpha = 0)
 ```
 
+
 ```{r}
-coefs_ridge <- as.data.frame(coef(ridge_math_performance)[-1,])
+
+coefs_ridge_pred <- predict(ridge_math_performance, type = "coefficients" ,
+                       s = best_lambda_ridge_train)
+
+coefs_ridge <- as.data.frame(coefs_ridge_pred[,c(1)])
+
+
 colnames(coefs_ridge) <- "value"
 
-coefs_ridge %>% 
+ridge_plot <- coefs_ridge %>% 
   rownames_to_column(var = "coefficient") %>% 
     mutate(coefficient = factor(coefficient)) %>% 
     ggplot(data = ., aes(x = reorder(coefficient, value), y = value)) +
@@ -421,21 +380,53 @@ coefs_ridge %>%
     geom_hline(aes(yintercept = 0),linetype = 6) +
     theme_bw() +
     coord_flip() +
-    ylab("Coefficient value") + xlab("Predictors")
+    ylab("Coefficient value") + xlab("Predictors") +
+    ggtitle("Ridge Regression coefficients")
 ```
 
 
+## LASSO fitted to the full dataset
 
+```{r}
+lasso_math_performace <- cv.glmnet(x_var_math_full, y_var_math_full, alpha = 1)
+```
 
 
 ```{r}
-#xyplot(mt ~ pcr_uscrimes$projection[,1], type = c("p", "g"))
+coef_lasso_pred <- predict(lasso_math_performace, type = "coefficients" , 
+                      s = best_lambda_lasso_train)
+
+
+coefs_lasso <- as.data.frame(coef_lasso_pred[,c(1)])
+
+
+coefs_lasso <- 
+  coefs_lasso %>%   
+    rownames_to_column(var = "coefficient")  %>% 
+    mutate(coefficient = factor(coefficient)) %>% 
+    rename(value = "coef_lasso_pred[, c(1)]")
+```
+
+
+```{r}
+lasso_plot <- ggplot(data = coefs_lasso, aes(x = reorder(coefficient,value), y = value)) +
+    geom_point(fill = "#ed3324", color = "white", size = 4, shape = 21) + 
+    geom_hline(aes(yintercept = 0),linetype = 6) +
+    theme_bw() +
+    coord_flip() +
+    ylab("Coefficient value") + xlab("Predictors") +
+    ggtitle("Lasso Regression coefficients")
 ```
 
 
 
 
+# Figure 4
 
+
+```{r fig.width= 15}
+plot_grid(lasso_plot, ridge_plot, nrow = 1, labels = "AUTO")
+```
 
 
 
