@@ -9,7 +9,7 @@ install.packages("cowplot")
 install.packages("glmnet")
 install.packages("randomForest")
 install.packages("gbm")
-install.packages("plsr")
+install.packages("pls")
 
 
 #install.packages("")
