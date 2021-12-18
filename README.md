@@ -1,4 +1,4 @@
-# STAT 534 Statistical Data Science I
+# STAT 534 Statistical Data Science I Final Project
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ecamo19/project_statistical_data_science/HEAD)
 
