@@ -1,4 +1,4 @@
-esinstall.packages("tidyverse")
+install.packages("tidyverse")
 install.packages("janitor")
 install.packages("tidyr")
 install.packages("cowplot")
