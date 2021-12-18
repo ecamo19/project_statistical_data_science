@@ -10,6 +10,7 @@ bin-release/
 .ipynb_checkpoints
 *.Rmd
 *.Rproj
+*.gitignore
 
 # Executables
 *.swf
