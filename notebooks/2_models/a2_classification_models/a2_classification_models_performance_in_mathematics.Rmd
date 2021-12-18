@@ -1,5 +1,5 @@
 ---
-title: 'Classification Models for students performance in Mathematics'
+title: 'Classification Models for students performance in Mathematics A2'
 author: "Erick Calderon-Morales"
 date: ' Fall 2021'
 due_date: ""

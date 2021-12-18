@@ -8,6 +8,7 @@ bin-release/
 .settings/
 #.ipynb
 .ipynb_checkpoints
+.Rmd
 
 # Executables
 *.swf

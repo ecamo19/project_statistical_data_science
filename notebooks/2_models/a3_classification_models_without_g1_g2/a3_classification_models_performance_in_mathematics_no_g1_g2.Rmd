@@ -335,7 +335,7 @@ plot(varImp(train_gbm))
 
 
 
-# For model comparision Table 6
+# Table 6
 
 ```{r}
 
