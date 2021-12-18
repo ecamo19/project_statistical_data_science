@@ -4,4 +4,4 @@
 
 This repo contains all the files, notebooks and data for reproduce the the analysis, figures and tables for final project from the statistical data science course. 
 
-For accessing the files just click in the Binder bottom
+For accessing the files just click in the Binder bottom and open the folder called notebooks
