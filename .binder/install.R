@@ -11,8 +11,6 @@ install.packages("glmnet")
 install.packages("yardstick")
 install.packages("rpart")
 install.packages("randomForest")
-install.packages("partykit")
-install.packages("psych")
 install.packages("gbm")
 
 #install.packages("")
