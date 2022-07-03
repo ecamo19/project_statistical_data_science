@@ -2,6 +2,6 @@
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ecamo19/project_statistical_data_science/HEAD)
 
-This repo contains all the files, notebooks and data for reproduce the the analysis, figures and tables for final project from the statistical data science course. 
+This repo contains all the files, notebooks and data for reproduce the the analysis, figures and tables for final project from the statistical data science course at Virginia Commonwealth University 
 
 For accessing the files just click in the Binder bottom and open the folder called notebooks
